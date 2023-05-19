@@ -150,7 +150,8 @@ async function runAsModalSubmit(interaction: Interaction) {
                 id: id,
                 odd: odd,
                 amount: amount,
-                winner: winner
+                winner: winner,
+                claimed: 0
             });
 
             balance.bets = bets;

@@ -27,12 +27,13 @@ export interface Match {
 }
 
 export interface ValuesObject {
-    [key: string]: number;
+    [key: string]: any;
 }
 
 export interface Bet {
     id: string,
     odd: number,
     amount: number,
+    claimed: number, // 0 = not claimed, 1 = winned, 2 = lost
     winner: string | null
 }

@@ -20,7 +20,7 @@ export interface Id {
 export default class DatabaseHelper {
     private static getBalStatement: Database.Statement;
     private static getAllServerBalsStatement: Database.Statement;
-    private static getAllUserBalsStatement: Database.Statement;
+    private static getAllBalsStatement: Database.Statement;
     private static setBalStatement: Database.Statement;
 
     private static getIdStatement: Database.Statement;
@@ -68,21 +68,21 @@ export default class DatabaseHelper {
             );
         }
 
-        if (!DatabaseHelper.getAllUserBalsStatement) {
-            DatabaseHelper.getAllUserBalsStatement = this.db.prepare(
-                "SELECT userID, serverID, money, bets FROM balance WHERE userID=?"
-            );
-        }
-
         if (!DatabaseHelper.getAllServerBalsStatement) {
             DatabaseHelper.getAllServerBalsStatement = this.db.prepare(
                 "SELECT userID, serverID, money, bets FROM balance WHERE serverID=?"
             );
         }
 
+        if (!DatabaseHelper.getAllBalsStatement) {
+            DatabaseHelper.getAllBalsStatement = this.db.prepare(
+                "SELECT * FROM balance"
+            );
+        }
+
         if (!DatabaseHelper.setBalStatement) {
             DatabaseHelper.setBalStatement = this.db.prepare(
-                "INSERT INTO balance (userID, serverID, money, bets) VALUES (@userID, @serverID, @money, @bets) ON CONFLICT(userID, serverID) DO UPDATE SET money=@money AND bets=@bets"
+                "INSERT INTO balance (userID, serverID, money, bets) VALUES (@userID, @serverID, @money, @bets) ON CONFLICT(userID, serverID) DO UPDATE SET money=@money, bets=@bets"
             );
         }
 
@@ -122,6 +122,10 @@ export default class DatabaseHelper {
 
     getUsersBalanceByServerID(serverID: Snowflake): Balance[] {
         return <Balance[]>DatabaseHelper.getAllServerBalsStatement.all(serverID);
+    }
+
+    getAllUsersBalance(): Balance[] {
+        return <Balance[]>DatabaseHelper.getAllBalsStatement.all();
     }
 
     setBalance(balance: Balance): void {

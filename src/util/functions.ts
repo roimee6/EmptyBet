@@ -1,6 +1,7 @@
 import axios from "axios";
+import accents from "remove-accents";
 
-import {BotEvent, Match, SlashCommand, ValuesObject} from "./types";
+import {Bet, BotEvent, Match, SlashCommand, ValuesObject} from "./types";
 import {REST} from "@discordjs/rest";
 import {Client} from "discord.js";
 import {Routes} from "discord-api-types/v9";
@@ -44,10 +45,12 @@ export async function load(client: Client) {
     );
 }
 
-export async function getMatchsByCompetition(competition: string): Promise<Array<Match>> {
+export async function getMatchsByCompetition(competition: string, filterFinished: boolean = false): Promise<Array<Match>> {
     try {
         const resp = await axios.get(config.BET_API + "/" + competition);
-        return Object.values(resp.data);
+        const matchs: Array<Match> = Object.values(resp.data);
+
+        return filterFinished ? matchs.filter(match => match.status !== 0) : matchs;
     } catch (e) {
         console.log(e);
         return [];
@@ -61,10 +64,24 @@ export async function getAllCompetitionsMatchs(): Promise<ValuesObject> {
         const matchs = await getMatchsByCompetition(competition);
 
         for (const match of matchs) {
-            console.log(match.status);
+            const array = result[competition] || [];
+            array.push(match);
 
+            result[competition] = array;
+        }
+    }
+
+    return result;
+}
+
+export async function getAllCompetitionsMatchsNumber(): Promise<ValuesObject> {
+    const result: ValuesObject = {};
+    const competitions = await getAllCompetitionsMatchs();
+
+    for (const [competition, matchs] of Object.entries(competitions)) {
+        for (const match of <Match[]>matchs) {
             if (match.status !== 0) {
-                const number = result[competition] || 0;
+                const number = <number>result[competition] || 0;
                 result[competition] = number + 1;
             }
         }
@@ -80,7 +97,7 @@ export function randomColor(): any {
 
 export function matchToID(competition: string, match: Match): string {
     const ids = db.getAllIds();
-    const data = Buffer.from(competition + "|" + match.home + "|" + match.outside + "|" + match.hour).toString("base64");
+    const data = Buffer.from(accents.remove(competition + "|" + match.home + "|" + match.outside + "|" + match.hour)).toString("base64");
 
     for (const id of ids) {
         if (id.data === data) {
@@ -119,14 +136,19 @@ export async function getMatchByID(id: string): Promise<Match | null> {
     const matchs = await getMatchsByCompetition(data[0]);
 
     for (const match of matchs) {
-        if (match.status !== 0 && match.home === data[1] && match.outside === data[2] && match.hour === data[3]) {
+        if (
+            match.status !== 0 &&
+            accents.remove(match.home) === accents.remove(data[1]) &&
+            accents.remove(match.outside) === accents.remove(data[2]) &&
+            match.hour === data[3]
+        ) {
             return match;
         }
     }
     return null;
 }
 
-export function arrayToPage(array: ValuesObject, page: number, seperator: number) {
+export function arrayToPage(array: ValuesObject | Bet[], page: number, seperator: number) {
     const result: ValuesObject = {};
     const pageMax = Math.ceil(Object.keys(array).length / seperator);
 

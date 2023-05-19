@@ -10,14 +10,14 @@ import {
 } from "discord.js";
 
 import {
-    getAllCompetitionsMatchs,
+    getAllCompetitionsMatchsNumber,
     getMatchByID,
     getMatchsByCompetition,
     matchToID,
     randomColor
 } from "../util/functions";
 
-import {ButtonsBox, Modal} from "easy-discord-components";
+import {ButtonsBox, Modal, SelectMenu} from "easy-discord-components";
 import {Match} from "../util/types";
 
 export default {
@@ -31,19 +31,21 @@ export default {
         }
 
         await interaction.deferReply();
-        let competitions = await getAllCompetitionsMatchs();
+        let competitions = await getAllCompetitionsMatchsNumber();
 
         const values = Object.values(competitions);
         const sum = values.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 
-        let description = "Vous pouvez actuellement parier sur **" + sum + "** matchs de **" + values.length + "** competitions, choisisez la competition grace aux boutons\n\n";
-        const buttons = new ButtonsBox();
+        let description = "Vous pouvez actuellement parier sur **" + sum + "** matchs de **" + values.length + "** competitions, choisisez la competition grace au menu déroulant\n\n";
+
+        const selectMenu = new SelectMenu({})
+            .setCustomId("choose")
+            .setPlaceholder("⚽ Cliquez ici pour choisir la compétition !");
 
         for (const [competition, matchs] of Object.entries(competitions)) {
-            buttons.addButton({
-                style: ButtonStyle.Secondary,
+            selectMenu.addOption({
                 label: config.COMPETITIONS[competition],
-                customId: "choose:" + competition
+                value: competition
             });
 
             description += "- **" + config.COMPETITIONS[competition] + "** (" + matchs + " matchs disponible)\n";
@@ -51,7 +53,7 @@ export default {
 
         const embed = new EmbedBuilder()
             .setColor(randomColor())
-            .setDescription(description + "\nCliquez sur les boutons ci-dessous ⬇️")
+            .setDescription(description + "\nCliquez sur le menu déroulant puis cliquez sur la compétition ⬇️")
             .setAuthor({
                 iconURL: interaction.user.avatarURL() || "",
                 name: interaction.user.tag
@@ -63,17 +65,18 @@ export default {
             .setTimestamp();
 
         const message = await interaction.editReply({
-            components: buttons.fetch,
+            components: [selectMenu.fetch],
             embeds: [embed]
         });
 
         message.createMessageComponentCollector().on("collect", async (i) => {
             if (i.user.id !== interaction.user.id) {
-                i.reply({content: "Fait la commande toi même fdp", ephemeral: true});
+                i.reply({content: "Faites la commande /bet vous même pour parier", ephemeral: true});
                 return;
             }
 
-            const data = i.customId.split(":");
+            const customId = i.isAnySelectMenu() ? i.customId + ":" + i.values[0] : i.customId;
+            const data = customId.split(":");
 
             if (data[0] === "choose") {
                 const competition = data[1];
@@ -125,22 +128,23 @@ export default {
 }
 
 async function chooseCompetitionMessage(interaction: BaseInteraction, competition: string) {
-    const matchs = await getMatchsByCompetition(competition);
-    const buttons = new ButtonsBox();
+    const matchs = await getMatchsByCompetition(competition, true);
+    const selectMenu = new SelectMenu({})
+        .setCustomId("bet")
+        .setPlaceholder("⚽ Cliquez ici pour choisir le match !");
 
-    let description = "Vous pouvez actuellement parié sur **" + matchs.length + "** matchs, choisissez le match grace aux boutons\n\n";
+    let description = "Vous pouvez actuellement parié sur **" + matchs.length + "** matchs, choisissez le match grace au menu déroulant\n\n";
 
     for (const match of matchs) {
-        buttons.addButton({
-            style: ButtonStyle.Secondary,
+        selectMenu.addOption({
             label: match.home + " vs " + match.outside,
-            customId: "bet:" + matchToID(competition, match)
+            value: matchToID(competition, match)
         });
 
-        description += "- **" + match.home + " vs " + match.outside + "** (" + match.day + " à " + match.hour + "H)\n";
+        description += "- **" + match.home + " vs " + match.outside + "** (" + match.day + " à " + match.hour + ")\n";
     }
 
-    description += "\nCliquez sur les boutons ci-dessous pour parier ⬇️"
+    description += "\nCliquez sur le menu déroulant ci-dessous puis cliquer sur le match  ⬇️"
 
     const embed = new EmbedBuilder()
         .setColor(randomColor())
@@ -156,13 +160,13 @@ async function chooseCompetitionMessage(interaction: BaseInteraction, competitio
         .setTimestamp();
 
     return {
-        components: buttons.fetch,
+        components: [selectMenu.fetch],
         embeds: [embed]
     };
 }
 
 async function betMessage(interaction: BaseInteraction, id: string, match: Match) {
-    let description = "**" + match.home + " vs " + match.outside + "**\nDate du match: " + match.day + " à " + match.hour + "H\n\nCote pour **" + match.home + "** gagnant: **" + match.home_odd + "**\nCote pour **match nul**: **" + match.neutral_odd + "**\nCote pour **" + match.outside + "** gagnant: **" + match.outside_odd + "**\n\nCliquez sur les boutons ci-dessous pour parier ⬇️\nLa cote la plus basse est en rouge et la plus haute en vert";
+    let description = "**" + match.home + " vs " + match.outside + "**\nDate du match: " + match.day + " à " + match.hour + "\n\nCote pour **" + match.home + "** gagnant: **" + match.home_odd + "**\nCote pour **match nul**: **" + match.neutral_odd + "**\nCote pour **" + match.outside + "** gagnant: **" + match.outside_odd + "**\n\nCliquez sur les boutons ci-dessous pour parier ⬇️\nLa cote la plus basse est en rouge et la plus haute en vert";
     const buttons = new ButtonsBox();
 
     buttons.addButton({
